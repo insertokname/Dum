@@ -1,7 +1,8 @@
-package com.insertokname.dum.playfield;
+package com.insertokname.dum.game_objects;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.insertokname.dum.GameConfig;
@@ -31,7 +32,7 @@ public class Player {
         if (Gdx.input.isKeyPressed(Input.Keys.J)) {
             rotation += 1;
         }
-        return rotation * GameConfig.PLAYER_ROTATION_SPEED;
+        return rotation * GameConfig.Player.ROTATION_SPEED;
     }
 
 
@@ -61,24 +62,23 @@ public class Player {
         }
         return movement
             .nor()
-            .scl(GameConfig.PLAYER_MOVEMENT_SPEED)
+            .scl(GameConfig.Player.MOVEMENT_SPEED)
             .rotateDeg(direction.angleDeg(UP));
     }
 
     public void drawTopDown(ShapeRenderer shapeRenderer) {
 
         Vector2 head = new Vector2(direction)
-            .scl(GameConfig.PLAYER_HITBOX_RADIUS)
+            .scl(GameConfig.Player.HITBOX_RADIUS)
             .add(position);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        shapeRenderer.setColor(GameConfig.PLAYER_COLOR);
-        shapeRenderer.circle(position.x, position.y, GameConfig.PLAYER_HITBOX_RADIUS, 24);
+        shapeRenderer.setColor(GameConfig.Player.COLOR);
+        shapeRenderer.circle(position.x, position.y, GameConfig.Player.HITBOX_RADIUS, 24);
 
-        shapeRenderer.setColor(GameConfig.PLAYER_HEAD_COLOR);
-        shapeRenderer.circle(head.x, head.y, GameConfig.PLAYER_HEAD_SIZE, 24);
-
+        shapeRenderer.setColor(GameConfig.Player.HEAD_COLOR);
+        shapeRenderer.circle(head.x, head.y, GameConfig.Player.HEAD_SIZE, 24);
 
         shapeRenderer.end();
     }
