@@ -1,6 +1,7 @@
 package com.insertokname.dum.game_objects;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.insertokname.dum.GameConfig;
@@ -11,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Playfield {
-    public Player player;
+    private Player player;
     private final int width, height;
     private final Tile[][] tiles;
 
@@ -104,6 +105,16 @@ public class Playfield {
         }
         shapeRenderer.end();
 
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(Color.WHITE);
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                shapeRenderer.rect(j, i, 1, 1);
+            }
+        }
+        shapeRenderer.end();
+
         player.drawTopDown(shapeRenderer);
     }
 
@@ -118,23 +129,89 @@ public class Playfield {
 
         for (int i = 0; i < GameConfig.Renderer.RAY_COUNT; i++) {
             double rayAngle = Math.atan(screenPos / eyeToScreenDist);
-            Vector2 ray = player
-                .getDirection()
-                .rotateRad((float) rayAngle)
-                .scl(GameConfig.Renderer.RAY_STEP);
-            Vector2 rayStep = new Vector2(ray);
-
             float rayAngleCos = (float) Math.cos(rayAngle);
-            Tile collidedTile = getTile((int) (ray.x + playerPos.x), (int) (ray.y + playerPos.y));
-            while (collidedTile == Tile.AIR && ray.len() * rayAngleCos < GameConfig.Renderer.RENDER_DISTANCE) {
-                ray.add(rayStep);
-                collidedTile = getTile((int) (ray.x + playerPos.x), (int) (ray.y + playerPos.y));
+
+
+            Vector2 ray = new Vector2();
+            Direction collisionDirection = null;
+            Tile collidedTile = Tile.AIR;
+            float textureSamplePos = 0;
+
+            Vector2 rayDirection = player
+                .getDirection()
+                .rotateRad((float) rayAngle);
+
+            int xDirection = rayDirection.x < 0 ? -1 : 1;
+            int yDirection = rayDirection.y < 0 ? -1 : 1;
+
+            Vector2 xStepVec = null;
+            Vector2 yStepVec = null;
+
+            while (ray.len() * rayAngleCos < GameConfig.Renderer.RENDER_DISTANCE) {
+                float mapPosX = playerPos.x + ray.x;
+                float mapPosY = playerPos.y + ray.y;
+
+                int tilePosX = 0;
+                int tilePosY = 0;
+
+                if (rayDirection.x < 0) {
+                    mapPosX = (float) Math.ceil(mapPosX);
+                    tilePosX -= 1;
+                } else {
+                    mapPosX = (float) Math.floor(mapPosX);
+                }
+
+                if (rayDirection.y < 0) {
+                    mapPosY = (float) Math.ceil(mapPosY);
+                    tilePosY -= 1;
+                } else {
+                    mapPosY = (float) Math.floor(mapPosY);
+                }
+
+                tilePosX += (int) mapPosX;
+                tilePosY += (int) mapPosY;
+
+                if (0 <= tilePosX && tilePosX < width && 0 <= tilePosY && tilePosY < height && xStepVec != null && yStepVec != null) {
+                    if (getTile(tilePosX, tilePosY) != Tile.AIR) {
+                        collidedTile = getTile(tilePosX, tilePosY);
+                        if (xStepVec.len() < yStepVec.len()) {
+                            if (rayDirection.x < 0) {
+                                collisionDirection = Direction.EAST;
+                            } else {
+                                collisionDirection = Direction.WEST;
+                            }
+                            textureSamplePos = (ray.y + playerPos.y - tilePosY);
+                        } else {
+                            if (rayDirection.y < 0) {
+                                collisionDirection = Direction.NORTH;
+                            } else {
+                                collisionDirection = Direction.SOUTH;
+                            }
+                            textureSamplePos = (ray.x + playerPos.x - tilePosX);
+                        }
+                        break;
+                    }
+                }
+
+                float xStep = (mapPosX + xDirection) - (playerPos.x + ray.x);
+                float yStep = (mapPosY + yDirection) - (playerPos.y + ray.y);
+
+                xStepVec = new Vector2(rayDirection).scl(xStep / rayDirection.x);
+                yStepVec = new Vector2(rayDirection).scl(yStep / rayDirection.y);
+
+                if (xStepVec.len() < yStepVec.len()) {
+                    ray.add(xStepVec);
+                } else {
+                    ray.add(yStepVec);
+                }
             }
 
             rays.add(new Ray(
                 ray,
                 collidedTile,
-                ray.len() * rayAngleCos
+                collisionDirection,
+                ray.len() * rayAngleCos,
+                textureSamplePos
             ));
             screenPos -= screenPosStep;
         }
@@ -145,35 +222,39 @@ public class Playfield {
         );
     }
 
-    public void drawPov(ShapeRenderer shapeRenderer, RayCastResult rayCastResult) {
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        shapeRenderer.setColor(0.49f, 0.49f, 0.49f, 1);
-        shapeRenderer.rect(0f, 0f, 1f, 1f);
-
+    public void drawPov(ShapeRenderer shapeRenderer, SpriteBatch spriteBatch, RayCastResult rayCastResult) {
         float step = 1.0f / rayCastResult.rays.size();
         float eyeToScreenDist = 0.5f / (float) Math.tan(Math.toRadians(GameConfig.Renderer.FOV / 2));
         float wallHeight = 1.0f;
-        float fadeOutStartColor = Lerp.lerp(0.49f, 1.0f, wallHeight * eyeToScreenDist / GameConfig.Renderer.FOG_START);
+        float minWallHeight = wallHeight * eyeToScreenDist / GameConfig.Renderer.RENDER_DISTANCE;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.49f, 0.49f, 0.49f, 1);
+        shapeRenderer.rect(0, 0, 1, 0.5f - (minWallHeight) / 2);
+        shapeRenderer.rect(0, 0.5f + (minWallHeight) / 2, 1, 0.5f - (minWallHeight) / 2);
+        shapeRenderer.end();
+
+        spriteBatch.begin();
 
         for (int i = 0; i < rayCastResult.rays.size(); i++) {
             float wallDist = rayCastResult.rays.get(i).distToPlayerViewPlane;
             float sliverHeight = wallHeight * eyeToScreenDist / wallDist;
 
-            float color;
-            if (rayCastResult.rays.get(i).collidedTile == Tile.AIR) {
-                color = 0.49f;
+            if (rayCastResult.rays.get(i).collidedTile != Tile.AIR) {
+                spriteBatch.draw(
+                    GameConfig.Wall,
+                    i * step,
+                    (1 - sliverHeight) / 2,
+                    step,
+                    sliverHeight,
+                    rayCastResult.rays.get(i).textureSamplePos,
+                    1,
+                    rayCastResult.rays.get(i).textureSamplePos + step,
+                    0);
 
-            } else if (wallDist <= GameConfig.Renderer.FOG_START) {
-                color = Lerp.lerp(0.49f, 1.0f, sliverHeight);
-            } else {
-                color = Lerp.lerp(fadeOutStartColor, 0.49f, (wallDist - GameConfig.Renderer.FOG_START) / (GameConfig.Renderer.RENDER_DISTANCE - GameConfig.Renderer.FOG_START));
             }
-
-            shapeRenderer.setColor(color, color, color, 1);
-            shapeRenderer.rect(i * step, (1 - sliverHeight) / 2, step, sliverHeight);
         }
 
-        shapeRenderer.end();
+        spriteBatch.end();
     }
 }

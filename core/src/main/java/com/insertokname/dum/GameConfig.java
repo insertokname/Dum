@@ -1,8 +1,11 @@
 package com.insertokname.dum;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 
 public final class GameConfig {
+    public static Texture Wall = null;
+
     public static final class Playfield {
         public static final String[] LAYOUT = {
             "########################",
@@ -38,7 +41,6 @@ public final class GameConfig {
     public static final class Renderer {
         public static final float FOV = 70;
         public static final int RAY_COUNT = 1000;
-        public static final float RAY_STEP = 0.002f;
         public static final float RENDER_DISTANCE = 6.0f;
         public static final float FOG_START = RENDER_DISTANCE - 1.5f;
 
@@ -46,7 +48,7 @@ public final class GameConfig {
         public static final float RAY_WIDTH = 0.02f;
     }
 
-    public static final float MAP_SCREEN_PERCENT = 0.4f;
+    public static final float MAP_SCREEN_PERCENT = 0.35f;
     public static final int MAP_PADDING_X = 20;
     public static final int MAP_PADDING_Y = 20;
 

@@ -4,6 +4,7 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -24,13 +25,15 @@ public class Main extends ApplicationAdapter {
     private Viewport povViewport;
 
     private Viewport hudViewport;
-    private SpriteBatch batch;
+    private SpriteBatch spriteBatch;
     private BitmapFont font;
 
-    private static boolean showMap = true;
+    private boolean showMap = false;
+    private boolean topDownView = true;
 
     @Override
     public void create() {
+        GameConfig.Wall = new Texture("baby.jpg");
         shapeRenderer = new ShapeRenderer();
 
         viewport = new FitViewport(GameConfig.Playfield.WIDTH, GameConfig.Playfield.HEIGHT);
@@ -38,7 +41,7 @@ public class Main extends ApplicationAdapter {
         povViewport = new FitViewport(1, 1);
 
         hudViewport = new ScreenViewport();
-        batch = new SpriteBatch();
+        spriteBatch = new SpriteBatch();
         font = new BitmapFont();
 
         for (int row = 0; row < GameConfig.Playfield.HEIGHT; row++) {
@@ -69,13 +72,16 @@ public class Main extends ApplicationAdapter {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
-        batch.dispose();
+        spriteBatch.dispose();
         font.dispose();
     }
 
     private void update(float delta) {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.M) && !topDownView) {
             showMap = !showMap;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.N)) {
+            topDownView = !topDownView;
         }
         playfield.update(delta);
     }
@@ -85,9 +91,12 @@ public class Main extends ApplicationAdapter {
 
         ScreenUtils.clear(Color.BLACK);
 
-        povViewport.apply();
-        shapeRenderer.setProjectionMatrix(povViewport.getCamera().combined);
-        playfield.drawPov(shapeRenderer, rayCastResult);
+        if (!topDownView) {
+            povViewport.apply();
+            shapeRenderer.setProjectionMatrix(povViewport.getCamera().combined);
+            spriteBatch.setProjectionMatrix(povViewport.getCamera().combined);
+            playfield.drawPov(shapeRenderer, spriteBatch, rayCastResult);
+        }
 
         float size =
             GameConfig.MAP_SCREEN_PERCENT * Math.min(
@@ -95,21 +104,22 @@ public class Main extends ApplicationAdapter {
                 (float) Gdx.graphics.getHeight() / GameConfig.Playfield.HEIGHT);
         int mapHeight = (int) (GameConfig.Playfield.HEIGHT * size);
         int mapWidth = (int) (GameConfig.Playfield.WIDTH * size);
-        viewport.setScreenBounds(
-            Gdx.graphics.getWidth() - mapWidth - GameConfig.MAP_PADDING_X,
-            GameConfig.MAP_PADDING_Y,
-            mapWidth,
-            mapHeight);
+        if (!topDownView) {
+            viewport.update(mapWidth, mapHeight);
+            viewport.setScreenPosition(Gdx.graphics.getWidth() - mapWidth - GameConfig.MAP_PADDING_X, GameConfig.MAP_PADDING_Y);
+        } else {
+            viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        }
         viewport.apply();
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
-        if (showMap) {
+        if (topDownView || showMap) {
             playfield.drawTopDown(shapeRenderer, rayCastResult);
         }
 
         hudViewport.apply();
-        batch.setProjectionMatrix(hudViewport.getCamera().combined);
-        batch.begin();
-        font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 5, hudViewport.getWorldHeight() - 5);
-        batch.end();
+        spriteBatch.setProjectionMatrix(hudViewport.getCamera().combined);
+        spriteBatch.begin();
+        font.draw(spriteBatch, "FPS: " + Gdx.graphics.getFramesPerSecond(), 5, hudViewport.getWorldHeight() - 5);
+        spriteBatch.end();
     }
 }
